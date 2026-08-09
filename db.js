@@ -1,7 +1,10 @@
 const path = require("path");
 const Database = require("better-sqlite3");
 
-const DB_PATH = process.env.DATABASE_URL || path.join(__dirname, "..", "dev.db");
+// Use a dedicated env var for the SQLite file path. DATABASE_URL is
+// conventionally used for Postgres-style connection strings and is
+// misleading when pointing at a SQLite file.
+const DB_PATH = process.env.SQLITE_DB_PATH || path.join(__dirname, "dev.db");
 const db = new Database(DB_PATH);
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");
