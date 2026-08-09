@@ -1,4 +1,4 @@
-// Point this at your deployed backend URL when you host it.
+﻿// Point this at your deployed backend URL when you host it.
 // Left as localhost for local development.
 const API_BASE = window.API_BASE || "http://localhost:4000/api";
 
@@ -25,7 +25,7 @@ async function api(path, options = {}) {
     headers["Content-Type"] = "application/json";
   }
   const token = Auth.getToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  if (token) headers["Authorization"] = "Bearer " + token;
 
   const res = await fetch(`${API_BASE}${path}`, { ...options, headers });
   const isJson = res.headers.get("content-type")?.includes("application/json");

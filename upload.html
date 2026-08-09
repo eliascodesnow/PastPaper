@@ -67,7 +67,14 @@
 <script src="js/api.js"></script>
 <script>
 renderNav("upload.html");
-if (!Auth.isLoggedIn()) window.location.href = "login.html";
+// Allow selecting a file while logged out — require login only to submit.
+const authNoteEl = document.createElement('div');
+authNoteEl.id = 'auth-note';
+if (!Auth.isLoggedIn()) {
+  authNoteEl.innerHTML = `<div class="alert alert-info">You are not logged in. You can choose a file now, but you must <a href="login.html?next=upload.html">log in</a> to submit it.</div>`;
+  const panel = document.querySelector('.form-panel');
+  if (panel) panel.insertBefore(authNoteEl, panel.firstChild);
+}
 
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
@@ -123,6 +130,11 @@ document.getElementById("upload-form").addEventListener("submit", async (e) => {
   const alertBox = document.getElementById("alert-box");
   alertBox.innerHTML = "";
   document.getElementById("screening-result").innerHTML = "";
+
+  if (!Auth.isLoggedIn()) {
+    alertBox.innerHTML = `<div class="alert alert-err">Please <a href="login.html?next=upload.html">log in</a> before submitting. Your selected file will remain on this page.</div>`;
+    return;
+  }
 
   if (!selectedFile) {
     alertBox.innerHTML = `<div class="alert alert-err">Choose a file first.</div>`;

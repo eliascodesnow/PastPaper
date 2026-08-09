@@ -41,7 +41,9 @@
 <script src="js/api.js"></script>
 <script>
 renderNav("login.html");
-if (Auth.isLoggedIn()) window.location.href = "index.html";
+const params = new URLSearchParams(window.location.search);
+const next = params.get("next") || "index.html";
+if (Auth.isLoggedIn()) window.location.href = next;
 
 document.getElementById("regNumber").addEventListener("input", (e) => e.target.value = e.target.value.toUpperCase());
 
@@ -58,7 +60,7 @@ document.getElementById("login-form").addEventListener("submit", async (e) => {
       }),
     });
     Auth.setSession(data.token, data.user);
-    window.location.href = "index.html";
+    window.location.href = next || "index.html";
   } catch (err) {
     alertBox.innerHTML = `<div class="alert alert-err">${escapeHtml(err.message)}</div>`;
   }
