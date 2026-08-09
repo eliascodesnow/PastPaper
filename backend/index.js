@@ -10,8 +10,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Serve static frontend
-app.use(express.static(path.join(__dirname, '..', 'frontend')));
+// Serve the static frontend files kept at the project root.
+app.use(express.static(path.join(__dirname, '..')));
 
 app.get('/api/health', (req, res) => res.json({ ok: true, service: 'faculty-papers-api' }));
 app.use('/api/auth', authRoutes);

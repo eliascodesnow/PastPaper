@@ -53,7 +53,10 @@ async function checkInkCoverage(filePath) {
 }
 
 let pdfjsLibPromise = null;
-function loadPdfjs() { if (!pdfjsLibPromise) pdfjsLibPromise = import('pdfjs-dist/legacy/build/pdf.mjs'); return pdfjsLibPromise; }
+function loadPdfjs() {
+  if (!pdfjsLibPromise) pdfjsLibPromise = Promise.resolve(require('pdfjs-dist/legacy/build/pdf.js'));
+  return pdfjsLibPromise;
+}
 
 async function extractPdfText(filePath) {
   try {
