@@ -2,10 +2,10 @@ const express = require("express");
 const path = require("path");
 const fs = require("fs");
 const multer = require("multer");
-const db = require("../db");
-const { requireAuth } = require("../middleware/auth");
-const { screenPaper } = require("../services/screening");
-const { categorize } = require("../services/categorize");
+const db = require("./db");
+const { requireAuth } = require("./auth2");
+const { screenPaper } = require("./screening");
+const { categorize } = require("./categorize");
 
 const router = express.Router();
 
