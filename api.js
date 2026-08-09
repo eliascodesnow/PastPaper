@@ -42,9 +42,7 @@ function renderNav(activePage) {
   const el = document.getElementById("nav-links");
   if (!el) return;
 
-  const links = [
-    { href: "index.html", label: "Browse" },
-  ];
+  const links = [{ href: "index.html", label: "Browse" }];
 
   if (Auth.isLoggedIn()) {
     links.push({ href: "upload.html", label: "Upload" });
@@ -62,7 +60,7 @@ function renderNav(activePage) {
     const logout = document.createElement("a");
     logout.href = "#";
     logout.textContent = `Log out (${user.regNumber})`;
-    logout.style.color = "var(--chalk-dim)";
+    logout.className = "logout-link";
     logout.onclick = (e) => { e.preventDefault(); Auth.clear(); window.location.href = "index.html"; };
     el.appendChild(logout);
   }

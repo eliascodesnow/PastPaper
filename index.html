@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>The Archive — Faculty Past Papers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><span class="mark">FA</span> The Archive</a>
+    <div class="nav-links" id="nav-links"></div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow">Faculty of ICT, Media &amp; Engineering</span>
+      <h1>Every past paper your faculty has sat, kept honest and open.</h1>
+      <p class="hero-description">
+        Log in with your registration number, browse papers by unit and year,
+        and contribute the ones you've collected. Every upload is screened
+        automatically before it goes live — no blurry phone photos, no
+        scripts buried in scribbles.
+      </p>
+      <div class="hero-actions">
+        <a href="#browse" class="btn btn-primary">Browse the archive</a>
+        <a href="upload.html" class="btn btn-ghost">Contribute a paper</a>
+      </div>
+    </div>
+    <div>
+      <div class="script-card">
+        <div class="label">Registration number</div>
+        <div class="reg">DSE-01-0419/2025</div>
+        <div class="course">Diploma in Software Engineering</div>
+        <div class="stamp stamp-verified"><span class="big">✓</span>Verified<br/>Student</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<section class="section">
+  <div class="wrap">
+    <div class="eyebrow-line">How it works</div>
+    <div class="grid-3 how-it-works-grid">
+      <div class="panel">
+        <span class="num">01</span>
+        <h3>Register once</h3>
+        <p>Your registration number tells us your course automatically — DSE, DIT, DBIT, BSc and more are all recognised.</p>
+      </div>
+      <div class="panel">
+        <span class="num">02</span>
+        <h3>Papers are screened</h3>
+        <p>Every upload is checked for clarity, excessive handwriting, and language before it's published — automatically, on the spot.</p>
+      </div>
+      <div class="panel">
+        <span class="num">03</span>
+        <h3>Open to everyone</h3>
+        <p>Once approved, a paper belongs to the whole faculty community — no gatekeeping, no paying for past papers.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="section" id="browse">
+  <div class="wrap">
+    <div class="section-head">
+      <div>
+        <div class="eyebrow-line">The ledger</div>
+        <h2 class="browse-heading">Browse approved papers</h2>
+      </div>
+      <a href="upload.html" class="btn btn-primary">Upload a paper</a>
+    </div>
+
+    <div class="archive-filters">
+      <input id="search" placeholder="Search by unit, title, or code…" />
+      <select id="filter-exam" aria-label="Filter by exam type">
+        <option value="">All exam types</option>
+        <option>CAT</option>
+        <option>Main Exam</option>
+        <option>Supplementary</option>
+        <option>Assignment</option>
+        <option>Uncategorized</option>
+      </select>
+      <select id="filter-year" aria-label="Filter by year">
+        <option value="">All years</option>
+      </select>
+    </div>
+
+    <div class="ledger" id="ledger">
+      <div class="ledger-empty">Loading the archive…</div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap">
+    <span>The Archive — built by students, for students.</span>
+    <span>Open source. No fees, ever.</span>
+  </div>
+</footer>
+
+<script src="js/api.js"></script>
+<script>
+renderNav("index.html");
+
+let allPapers = [];
+
+function statusStamp() {
+  return `<span class="tag tag-verified">verified</span>`;
+}
+
+function renderLedger(papers) {
+  const el = document.getElementById("ledger");
+  if (!papers.length) {
+    el.innerHTML = `<div class="ledger-empty">No papers match yet. Be the first to <a href="upload.html" class="upload-link">upload one</a>.</div>`;
+    return;
+  }
+  el.innerHTML = papers.map(p => `
+    <div class="ledger-row">
+      <div class="ledger-title">
+        ${escapeHtml(p.title)}
+        <span class="unit">${escapeHtml(p.unitName || "")} ${p.unitCode ? "· " + escapeHtml(p.unitCode) : ""}</span>
+      </div>
+      <span class="tag">${escapeHtml(p.course)}</span>
+      <span class="tag">${escapeHtml(p.examType)}</span>
+      <span class="tag tag-year">${p.year}</span>
+      <a class="btn btn-ghost btn-download" href="${API_BASE}/papers/${p.id}/download">Download</a>
+    </div>
+  `).join("");
+}
+
+function applyFilters() {
+  const q = document.getElementById("search").value.toLowerCase();
+  const exam = document.getElementById("filter-exam").value;
+  const year = document.getElementById("filter-year").value;
+  const filtered = allPapers.filter(p => {
+    if (exam && p.examType !== exam) return false;
+    if (year && String(p.year) !== year) return false;
+    if (q && !`${p.title} ${p.unitName} ${p.unitCode}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  renderLedger(filtered);
+}
+
+async function loadPapers() {
+  try {
+    allPapers = await api("/papers");
+    const years = [...new Set(allPapers.map(p => p.year))].sort((a,b) => b - a);
+    document.getElementById("filter-year").innerHTML =
+      `<option value="">All years</option>` + years.map(y => `<option>${y}</option>`).join("");
+    renderLedger(allPapers);
+  } catch (err) {
+    document.getElementById("ledger").innerHTML =
+      `<div class="ledger-empty">Couldn't reach the archive server. Is the backend running?</div>`;
+  }
+}
+
+document.getElementById("search").addEventListener("input", applyFilters);
+document.getElementById("filter-exam").addEventListener("change", applyFilters);
+document.getElementById("filter-year").addEventListener("change", applyFilters);
+
+loadPapers();
+</script>
+</body>
+</html>
