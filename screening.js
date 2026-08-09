@@ -1,6 +1,6 @@
 const fs = require("fs");
 const sharp = require("sharp");
-const Filter = require("bad-words");
+const { Filter } = require("bad-words");
 
 const filter = new Filter();
 
