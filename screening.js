@@ -54,46 +54,42 @@ async function checkProfanity(textFields) {
  * page has a wide spread of edge responses; a blurry photo compresses
  * toward the mean (low stdev).
  */
-async function checkImageClarity(filePath) {
+async function checkImageClarityFromBuffer(data/*image buffer*/, info) {
   const kernel = { width: 3, height: 3, kernel: [0, 1, 0, 1, -4, 1, 0, 1, 0] };
-  const { data, info } = await sharp(filePath)
+  // Use sharp on the original image buffer, convert to greyscale and convolve
+  // — this avoids re-reading from disk while keeping the convolution logic.
+  const conv = await sharp(data)
     .greyscale()
     .convolve(kernel)
     .raw()
     .toBuffer({ resolveWithObject: true });
 
-  const n = data.length;
+  const pixels = conv.data;
+  const n = pixels.length;
   let sum = 0;
-  for (let i = 0; i < n; i++) sum += data[i];
+  for (let i = 0; i < n; i++) sum += pixels[i];
   const mean = sum / n;
   let variance = 0;
-  for (let i = 0; i < n; i++) variance += (data[i] - mean) ** 2;
+  for (let i = 0; i < n; i++) variance += (pixels[i] - mean) ** 2;
   const stdev = Math.sqrt(variance / n);
 
   const passed = stdev >= BLUR_SHARPNESS_MIN;
+  const w = conv.info && conv.info.width ? conv.info.width : (info && info.width) || 0;
+  const h = conv.info && conv.info.height ? conv.info.height : (info && info.height) || 0;
   return {
     name: "image_clarity",
     passed,
-    detail: `edge sharpness ${stdev.toFixed(1)} (min ${BLUR_SHARPNESS_MIN}), ${info.width}x${info.height}`,
+    detail: `edge sharpness ${stdev.toFixed(1)} (min ${BLUR_SHARPNESS_MIN}), ${w}x${h}`,
   };
 }
 
-/**
- * Proxy for "too many handwritten annotations": ratio of dark pixels to
- * total pixels. Clean printed exam papers sit well under the threshold;
- * scans covered in pen marks/highlighting push the ratio up.
- */
-async function checkInkCoverage(filePath) {
-  const { data, info } = await sharp(filePath)
-    .greyscale()
-    .raw()
-    .toBuffer({ resolveWithObject: true });
-
+async function checkInkCoverageFromBuffer(data, info) {
+  const pixels = data;
   let dark = 0;
-  for (let i = 0; i < data.length; i++) {
-    if (data[i] < 120) dark++;
+  for (let i = 0; i < pixels.length; i++) {
+    if (pixels[i] < 120) dark++;
   }
-  const ratio = dark / data.length;
+  const ratio = dark / pixels.length;
   const passed = ratio <= INK_COVERAGE_MAX;
   return {
     name: "ink_coverage",
@@ -124,13 +120,19 @@ async function extractPdfText(filePath) {
     const standardFontDataUrl = require("path").join(require.resolve("pdfjs-dist/package.json"), "..", "standard_fonts") + "/";
     const doc = await pdfjsLib.getDocument({ data, isEvalSupported: false, standardFontDataUrl }).promise;
 
-    let text = "";
+    // Extract pages in parallel (safe for moderate page counts). If this
+    // becomes a hotspot, add a concurrency limiter (e.g. p-limit) to avoid
+    // saturating memory on very large PDFs.
+    const pagePromises = [];
     for (let i = 1; i <= doc.numPages; i++) {
-      const page = await doc.getPage(i);
-      const content = await page.getTextContent();
-      text += content.items.map((it) => it.str).join(" ") + "\n";
+      pagePromises.push(
+        doc.getPage(i).then((page) =>
+          page.getTextContent().then((content) => content.items.map((it) => it.str).join(" "))
+        )
+      );
     }
-    return text;
+    const pageTexts = await Promise.all(pagePromises);
+    return pageTexts.join("\n");
   } catch (err) {
     return ""; // treated as "no extractable text" downstream — fails safe to REJECTED
   }
@@ -150,11 +152,16 @@ async function screenPaper(filePath, metadata) {
     extractedText = await extractPdfText(filePath);
     checks.push(await checkPdfHasContent(extractedText));
   } else {
-    // Image checks are skipped for PDFs for now — rendering PDF pages to
-    // images for clarity/ink checks is a natural next step once this
-    // pipeline is upgraded (see OCR note below).
-    checks.push(await checkImageClarity(filePath));
-    checks.push(await checkInkCoverage(filePath));
+    // Image checks are skipped for PDFs for now. For uploaded images, read
+    // the file once into memory and run both checks against that buffer to
+    // avoid double disk reads and duplicate conversions.
+    const imageBuffer = fs.readFileSync(filePath);
+    const grey = await sharp(imageBuffer).greyscale().raw().toBuffer({ resolveWithObject: true });
+    // Run clarity on a convolved greyscale copy and ink coverage on raw greyscale
+    const clarity = await checkImageClarityFromBuffer(imageBuffer, { width: grey.info.width, height: grey.info.height, channels: grey.info.channels });
+    const ink = await checkInkCoverageFromBuffer(grey.data, { width: grey.info.width, height: grey.info.height, channels: grey.info.channels });
+    checks.push(clarity);
+    checks.push(ink);
   }
 
   checks.push(await checkProfanity([metadata.title, metadata.unitName, extractedText]));
