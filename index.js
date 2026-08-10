@@ -6,6 +6,13 @@ const authRoutes = require("./auth");
 const paperRoutes = require("./papers");
 
 const app = express();
+// compression is optional; avoid startup failure if the package isn't installed
+try {
+  const compression = require("compression");
+  app.use(compression());
+} catch (err) {
+  console.warn("compression not available — responses will not be gzipped");
+}
 app.use(cors());
 app.use(express.json());
 

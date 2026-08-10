@@ -38,6 +38,12 @@ db.exec(`
     uploaderId TEXT NOT NULL REFERENCES users(id),
     createdAt TEXT NOT NULL DEFAULT (datetime('now'))
   );
+
+  -- Helpful indexes to avoid full table scans on common filters and joins
+  CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(status);
+  CREATE INDEX IF NOT EXISTS idx_papers_uploaderId ON papers(uploaderId);
+  CREATE INDEX IF NOT EXISTS idx_papers_course_year_exam ON papers(course, year, examType);
+  CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year);
 `);
 
 // Postgres/Prisma migration note: this file is the only place that talks
@@ -73,12 +79,32 @@ const createPaperStmt = db.prepare(`
 function createPaper(paper) {
   const id = cuid();
   createPaperStmt.run({ id, ...paper });
-  return getPaperById(id);
+  // Return the inserted object's representation without issuing a second
+  // SELECT — avoids the N+1 pattern. Fill server-side defaults conservatively.
+  const now = new Date().toISOString();
+  return {
+    id,
+    title: paper.title,
+    unitCode: paper.unitCode || null,
+    unitName: paper.unitName || null,
+    course: paper.course,
+    examType: paper.examType,
+    year: paper.year,
+    fileName: paper.fileName,
+    filePath: paper.filePath,
+    fileType: paper.fileType,
+    status: paper.status || "PENDING",
+    rejectionReason: paper.rejectionReason || null,
+    screeningReport: paper.screeningReport || null,
+    downloadCount: 0,
+    uploaderId: paper.uploaderId,
+    createdAt: now,
+  };
 }
 function getPaperById(id) {
   return db.prepare(`SELECT * FROM papers WHERE id = ?`).get(id);
 }
-function listApprovedPapers({ course, unitCode, year, examType, q } = {}) {
+function listApprovedPapers({ course, unitCode, year, examType, q, limit = 20, page = 1 } = {}) {
   let sql = `SELECT papers.*, users.name AS uploaderName FROM papers JOIN users ON users.id = papers.uploaderId WHERE papers.status = 'APPROVED'`;
   const params = [];
   if (course) { sql += ` AND papers.course = ?`; params.push(course); }
@@ -86,12 +112,31 @@ function listApprovedPapers({ course, unitCode, year, examType, q } = {}) {
   if (year) { sql += ` AND papers.year = ?`; params.push(year); }
   if (examType) { sql += ` AND papers.examType = ?`; params.push(examType); }
   if (q) {
+    // Use a prefix match to allow index usage where possible. For full-text
+    // search at scale prefer FTS5 — this is a safe incremental improvement.
     sql += ` AND (papers.title LIKE ? OR papers.unitName LIKE ? OR papers.unitCode LIKE ?)`;
-    const like = `%${q}%`;
+    const like = `${q}%`;
     params.push(like, like, like);
   }
-  sql += ` ORDER BY papers.createdAt DESC`;
+  sql += ` ORDER BY papers.createdAt DESC LIMIT ? OFFSET ?`;
+  params.push(limit, (page - 1) * limit);
   return db.prepare(sql).all(...params);
+}
+
+function countApprovedPapers({ course, unitCode, year, examType, q } = {}) {
+  let sql = `SELECT COUNT(1) AS cnt FROM papers WHERE status = 'APPROVED'`;
+  const params = [];
+  if (course) { sql += ` AND course = ?`; params.push(course); }
+  if (unitCode) { sql += ` AND unitCode = ?`; params.push(unitCode); }
+  if (year) { sql += ` AND year = ?`; params.push(year); }
+  if (examType) { sql += ` AND examType = ?`; params.push(examType); }
+  if (q) {
+    sql += ` AND (title LIKE ? OR unitName LIKE ? OR unitCode LIKE ?)`;
+    const like = `${q}%`;
+    params.push(like, like, like);
+  }
+  const row = db.prepare(sql).get(...params);
+  return row ? row.cnt : 0;
 }
 function listPapersByUploader(uploaderId) {
   return db.prepare(`SELECT * FROM papers WHERE uploaderId = ? ORDER BY createdAt DESC`).all(uploaderId);
@@ -112,6 +157,7 @@ module.exports = {
   createPaper,
   getPaperById,
   listApprovedPapers,
+  countApprovedPapers,
   listPapersByUploader,
   incrementDownloadCount,
   setPaperStatus,

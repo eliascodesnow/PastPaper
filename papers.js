@@ -86,15 +86,23 @@ router.post("/", requireAuth, (req, res, next) => {
 
 // --- Public browsing (approved only, open to the whole community) -------
 router.get("/", (req, res) => {
-  const { course, unitCode, year, examType, q } = req.query;
+  const { course, unitCode, year, examType, q, page = "1", limit = "20" } = req.query;
+  const pageNum = Math.max(1, parseInt(page, 10) || 1);
+  const lim = Math.min(200, Math.max(1, parseInt(limit, 10) || 20));
+
   const papers = db.listApprovedPapers({
     course,
     unitCode,
     year: year ? parseInt(year, 10) : undefined,
     examType,
     q,
+    limit: lim,
+    page: pageNum,
   });
-  res.json(papers);
+
+  const total = db.countApprovedPapers({ course, unitCode, year: year ? parseInt(year, 10) : undefined, examType, q });
+
+  res.json({ papers, page: pageNum, limit: lim, total });
 });
 
 router.get("/mine", requireAuth, (req, res) => {
@@ -107,6 +115,8 @@ router.get("/:id/download", (req, res) => {
     return res.status(404).json({ error: "Paper not found." });
   }
   db.incrementDownloadCount(paper.id);
+  // Allow caching of approved PDFs at the CDN/browser for a short time.
+  res.set("Cache-Control", "public, max-age=604800, immutable"); // 7 days
   res.download(path.join(UPLOAD_DIR, paper.filePath), paper.fileName);
 });
 
