@@ -1,7 +1,7 @@
 const express = require("express");
 const bcrypt = require("bcryptjs");
-const { resolveRegNumber } = require("../config/regFormats");
-const { signToken } = require("../middleware/auth");
+const { resolveRegNumber } = require("./regFormat");
+const { signToken } = require("./auth2");
 const db = require("./db");
 
 const router = express.Router();

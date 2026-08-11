@@ -1,6 +1,16 @@
 ﻿// Point this at your deployed backend URL when you host it.
-// Left as localhost for local development.
-const API_BASE = window.API_BASE || "http://localhost:4000/api";
+// Preferred runtime override order:
+// 1) window.API_BASE (set by a script or hosting environment)
+// 2) <meta name="api-base" content="https://..."> (set per-deploy in Vercel)
+// 3) fallback to same-origin /api so a proxy or same-host deployment works
+const API_BASE = (function() {
+  if (window.API_BASE) return window.API_BASE.replace(/\/$/, "");
+  const meta = document.querySelector('meta[name="api-base"]');
+  if (meta && meta.content && meta.content.trim()) return meta.content.replace(/\/$/, "");
+  // default to same origin + /api (works when backend is mounted on same host or proxied)
+  const origin = (location && location.origin) ? location.origin.replace(/\/$/, "") : "";
+  return origin ? origin + "/api" : "";
+})();
 
 const Auth = {
   getToken() { return localStorage.getItem("fp_token"); },
@@ -59,7 +69,9 @@ function renderNav(activePage) {
   if (Auth.isLoggedIn()) {
     const logout = document.createElement("a");
     logout.href = "#";
-    logout.textContent = `Log out (${user.regNumber})`;
+    // Avoid displaying raw registration numbers in the public nav.
+    logout.textContent = "Log out (Account)";
+    logout.title = "Click to sign out";
     logout.className = "logout-link";
     logout.onclick = (e) => { e.preventDefault(); Auth.clear(); window.location.href = "index.html"; };
     el.appendChild(logout);

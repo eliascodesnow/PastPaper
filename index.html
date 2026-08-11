@@ -3,9 +3,12 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!-- Set this meta to your backend API root (e.g. https://my-backend.up.railway.app). Leave empty to use same-origin /api -->
+    <meta name="api-base" content="">
 <title>The Archive — Faculty Past Papers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="icon" href="/favicon.png">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -36,8 +39,8 @@
     <div>
       <div class="script-card">
         <div class="label">Registration number</div>
-        <div class="reg">DSE-01-0419/2025</div>
-        <div class="course">Diploma in Software Engineering</div>
+        <div class="reg">PREFIX-01-0419/2025</div>
+        <div class="course">Diploma in Software Engineering (example)</div>
         <div class="stamp stamp-verified"><span class="big">✓</span>Verified<br/>Student</div>
       </div>
     </div>
@@ -109,19 +112,16 @@
 <script>
 renderNav("index.html");
 
-let allPapers = [];
+let currentPage = 1;
+let currentLimit = 20;
+let lastTotal = 0;
 
 function statusStamp() {
   return `<span class="tag tag-verified">verified</span>`;
 }
 
-function renderLedger(papers) {
-  const el = document.getElementById("ledger");
-  if (!papers.length) {
-    el.innerHTML = `<div class="ledger-empty">No papers match yet. Be the first to <a href="upload.html" class="upload-link">upload one</a>.</div>`;
-    return;
-  }
-  el.innerHTML = papers.map(p => `
+function rowHtml(p) {
+  return `
     <div class="ledger-row">
       <div class="ledger-title">
         ${escapeHtml(p.title)}
@@ -132,39 +132,69 @@ function renderLedger(papers) {
       <span class="tag tag-year">${p.year}</span>
       <a class="btn btn-ghost btn-download" href="${API_BASE}/papers/${p.id}/download">Download</a>
     </div>
-  `).join("");
+  `;
 }
 
-function applyFilters() {
-  const q = document.getElementById("search").value.toLowerCase();
+function renderLedger(papers, append = false) {
+  const el = document.getElementById("ledger");
+  if (!papers.length && !append) {
+    el.innerHTML = `<div class="ledger-empty">No papers match yet. Be the first to <a href="upload.html" class="upload-link">upload one</a>.</div>`;
+    return;
+  }
+  if (!append) el.innerHTML = "";
+  el.insertAdjacentHTML('beforeend', papers.map(rowHtml).join(''));
+}
+
+function debounce(fn, wait = 300) {
+  let t;
+  return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), wait); };
+}
+
+async function loadPapers(page = 1, append = false) {
+  const q = document.getElementById("search").value.trim();
   const exam = document.getElementById("filter-exam").value;
   const year = document.getElementById("filter-year").value;
-  const filtered = allPapers.filter(p => {
-    if (exam && p.examType !== exam) return false;
-    if (year && String(p.year) !== year) return false;
-    if (q && !`${p.title} ${p.unitName} ${p.unitCode}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
-  renderLedger(filtered);
-}
-
-async function loadPapers() {
   try {
-    allPapers = await api("/papers");
-    const years = [...new Set(allPapers.map(p => p.year))].sort((a,b) => b - a);
-    document.getElementById("filter-year").innerHTML =
-      `<option value="">All years</option>` + years.map(y => `<option>${y}</option>`).join("");
-    renderLedger(allPapers);
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('limit', currentLimit);
+    if (q) params.set('q', q);
+    if (exam) params.set('examType', exam);
+    if (year) params.set('year', year);
+    const res = await api('/papers?' + params.toString());
+    const { papers, total } = res;
+    lastTotal = total;
+    renderLedger(papers, append);
+    // show/hide load more
+    const more = document.getElementById('load-more-btn');
+    if (!more) {
+      const btn = document.createElement('button');
+      btn.id = 'load-more-btn';
+      btn.className = 'btn btn-ghost';
+      btn.textContent = 'Load more';
+      btn.onclick = () => { currentPage++; loadPapers(currentPage, true); };
+      document.querySelector('.wrap').appendChild(btn);
+    }
+    if ((page * currentLimit) >= total) {
+      const btn2 = document.getElementById('load-more-btn');
+      if (btn2) btn2.style.display = 'none';
+    } else {
+      const btn2 = document.getElementById('load-more-btn');
+      if (btn2) btn2.style.display = '';
+    }
   } catch (err) {
     document.getElementById("ledger").innerHTML =
       `<div class="ledger-empty">Couldn't reach the archive server. Is the backend running?</div>`;
   }
 }
 
-document.getElementById("search").addEventListener("input", applyFilters);
-document.getElementById("filter-exam").addEventListener("change", applyFilters);
-document.getElementById("filter-year").addEventListener("change", applyFilters);
+const debouncedLoad = debounce(() => { currentPage = 1; loadPapers(1, false); }, 350);
 
+document.getElementById("search").addEventListener("input", debouncedLoad);
+document.getElementById("filter-exam").addEventListener("change", debouncedLoad);
+document.getElementById("filter-year").addEventListener("change", debouncedLoad);
+
+// Initial load
 loadPapers();
 </script>
 </body>
