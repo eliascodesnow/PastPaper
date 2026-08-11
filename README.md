@@ -1,7 +1,7 @@
 # The Archive — Faculty Past Papers
 
 A registration-number-gated archive of past exam papers for a single
-faculty (ICT, media, engineering — diploma and degree students). Every
+faculty (ICT, media, engineering; diploma and degree students). Every
 upload is screened automatically before publishing, then it's open to the
 whole student community, no fees, no gatekeeping.
 
@@ -63,7 +63,7 @@ checks the moment a file is uploaded — before anything is public:
 | `ink_coverage` (images) | Heavy scribbling/annotation, via dark-pixel ratio |
 | `language` | Vulgar words in the title, unit name, or extracted text |
 
-I tuned the image thresholds against real synthetic test cases (clean
+The image threshold was tuned against real synthetic test cases (clean
 page ≈2.5% ink coverage vs. a scribbled one ≈19% — the cutoff sits at
 10%; a clean page scores ~sharpness 100+ vs. a blurred one <1 — the
 cutoff sits at 12) — you may want to nudge these once real student
@@ -94,10 +94,9 @@ only fills gaps.
 
 ## Growing up: hosting recommendation
 
-You said "recommend the best option," so here's my actual pick, not a
-menu:
+future upscaling recommendations:
 
-**Railway** (railway.app) for the backend. It gives you a persistent
+**Railway** (railway.app) for the backend. Gives a persistent
 volume (SQLite + the uploaded files both need to survive redeploys,
 which rules out most "free" serverless platforms whose disks reset).
 Point a volume at `backend/uploads` and `backend/dev.db`, set your env
@@ -136,15 +135,15 @@ A few seams are already in place for this:
   doing the same job with more nuance — same call site, same output
   shape.
 
-## Honest limitations right now
+## Current limitations
 
-- No email/SMS verification on registration — anyone who knows the
+- No email/SMS verification on registration, anyone who knows the
   format can register with a made-up (but validly-shaped) number. Add
   verification against an official student list before relying on this
   for anything high-stakes.
 - Rejected files stay on disk indefinitely; add a cleanup job before
   production.
 - PDF clarity/ink-coverage checks are skipped (only the "has real text"
-  check runs) — rendering PDF pages to images and running the same
+  check runs) rendering PDF pages to images and running the same
   checks used for images is the natural next step.
 - No rate limiting on uploads or auth endpoints yet.
