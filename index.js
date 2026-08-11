@@ -1,3 +1,5 @@
+// Keep the repository-root entry point compatible with the package start command.
+require('./backend/index');
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");

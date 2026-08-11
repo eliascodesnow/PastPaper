@@ -1,0 +1,22 @@
+{
+  "name": "past-paper",
+  "version": "1.0.0",
+  "private": true,
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "pg": "^8.23.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5",
+    "multer": "^1.4.5-lts.1",
+    "bcryptjs": "^2.4.3",
+    "jsonwebtoken": "^9.0.2",
+    "dotenv": "^16.3.1",
+    "pdfjs-dist": "^3.7.107",
+    "bad-words": "^3.0.4",
+    "sharp": "^0.32.4"
+  },
+  "scripts": {
+    "start": "node backend/index.js",
+    "test": "node --check backend/index.js"
+  }
+}
