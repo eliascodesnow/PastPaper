@@ -13,7 +13,7 @@ Steps (recommended for the provided Vercel account):
 
 Notes about API and auth:
 - The frontend reads API_BASE (window.API_BASE) to contact the backend. Set API_BASE to your deployed backend URL (not the Vercel frontend URL).
-- Backend should be deployed separately (Dockerfile provided). Ensure JWT_SECRET and DATABASE_URL are set in the backend environment.
+- Backend should be deployed separately (Dockerfile provided). Ensure JWT_SECRET and SQLITE_DB_PATH are set in the backend environment.
 
 Preview deployments and branches:
 - Vercel will create preview deployments for PRs/branches. For preview testing, set API_BASE in the Preview/Development env settings to point at a staging backend or your local tunnelling URL (ngrok etc.).

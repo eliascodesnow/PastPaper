@@ -8,8 +8,8 @@ services:
       - "4000:4000"
     environment:
       - NODE_ENV=production
-      - JWT_SECRET=${JWT_SECRET:-change-me-to-a-secure-secret}
-      - DATABASE_URL=/app/dev.db
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in the environment}
+      - SQLITE_DB_PATH=/app/dev.db
       - PORT=4000
     volumes:
       - ./uploads:/app/uploads
