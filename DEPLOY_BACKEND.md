@@ -17,12 +17,12 @@ What the compose file does
 
 - Builds the image from the repository Dockerfile.
 - Mounts ./uploads to /app/uploads so uploaded files persist.
-- Mounts ./data to /app so dev.db persists across restarts (DATABASE_URL=/app/dev.db).
+- Mounts ./data to /app so dev.db persists across restarts (SQLITE_DB_PATH=/app/dev.db).
 - Exposes port 4000.
 
 Production recommendations
 
-- Use a proper managed database (Postgres) in production. To switch, set DATABASE_URL to a Postgres DSN and update backend/db.js to use a Postgres client or Prisma.
+- Use a proper managed database (Postgres) in production. To switch, replace the SQLite implementation in db.js with a Postgres client or Prisma.
 - Ensure JWT_SECRET is set to a long, random secret and not checked into source control.
 - Run behind a reverse proxy (nginx) or load balancer with TLS.
 - Use a process manager or orchestrator for scaling/rollbacks (Kubernetes, Docker Swarm, or a PaaS like Render).

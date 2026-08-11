@@ -1,4 +1,4 @@
 # Deno workflow intentionally disabled — removed because repository uses Node.js tooling.
-# If you need a CI workflow in future, add a GitHub Actions job that installs
+# If a workflow is needed in future, add a GitHub Actions job that installs
 # Node.js and runs the project's npm test/lint scripts instead.
 # (This file was replaced by a disabled placeholder to avoid accidental runs.)

@@ -49,7 +49,8 @@ router.post("/login", async (req, res) => {
     return res.status(400).json({ error: "Registration number and password are required." });
   }
 
-  const user = db.getUserByRegNumber((regNumber || "").trim().toUpperCase());
+  const resolved = resolveRegNumber(regNumber);
+  const user = resolved.valid ? db.getUserByRegNumber(resolved.regNumber) : null;
   if (!user) return res.status(401).json({ error: "No account found for that registration number." });
 
   const ok = await bcrypt.compare(password, user.passwordHash);
