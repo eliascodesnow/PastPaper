@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Upload a paper — The Archive</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <a class="brand" href="index.html"><span class="mark">FA</span> The Archive</a>
+    <div class="nav-links" id="nav-links"></div>
+  </div>
+</nav>
+
+<main class="auth-shell upload-shell">
+  <div class="upload-intro">
+    <span class="contribute-label">Contribute</span>
+    <h1 class="upload-heading">Upload a past paper</h1>
+    <p>It's screened automatically the moment you submit — you'll see the result right here.</p>
+  </div>
+
+  <div class="form-panel">
+    <div id="alert-box"></div>
+    <form id="upload-form">
+      <label for="title">Title</label>
+      <input id="title" placeholder="e.g. Data Structures Main Exam 2025" required />
+
+      <label for="unitName">Unit name</label>
+      <input id="unitName" placeholder="e.g. Data Structures and Algorithms" />
+
+      <div class="upload-fields-grid">
+        <div>
+          <label for="examType">Exam type</label>
+          <select id="examType">
+            <option value="">Let the system guess</option>
+            <option>CAT</option>
+            <option>Main Exam</option>
+            <option>Supplementary</option>
+            <option>Assignment</option>
+          </select>
+        </div>
+        <div>
+          <label for="year">Year</label>
+          <input id="year" type="number" min="2015" max="2030" placeholder="2025" />
+        </div>
+      </div>
+
+      <label for="fileInput">File</label>
+      <div class="dropzone" id="dropzone">
+        <div>Drop a PDF, JPG, or PNG here, or click to choose one</div>
+        <div class="filename" id="filename"></div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.webp" class="visually-hidden" />
+
+      <button class="btn btn-primary btn-block upload-submit" type="submit" id="submit-btn">Submit for screening</button>
+    </form>
+
+    <div id="screening-result"></div>
+  </div>
+</main>
+
+<script src="js/api.js"></script>
+<script>
+renderNav("upload.html");
+// Allow selecting a file while logged out — require login only to submit.
+const authNoteEl = document.createElement('div');
+authNoteEl.id = 'auth-note';
+if (!Auth.isLoggedIn()) {
+  authNoteEl.innerHTML = `<div class="alert alert-info">You are not logged in. You can choose a file now, but you must <a href="login.html?next=upload.html">log in</a> to submit it.</div>`;
+  const panel = document.querySelector('.form-panel');
+  if (panel) panel.insertBefore(authNoteEl, panel.firstChild);
+}
+
+const dropzone = document.getElementById("dropzone");
+const fileInput = document.getElementById("fileInput");
+const filenameEl = document.getElementById("filename");
+let selectedFile = null;
+
+dropzone.addEventListener("click", () => fileInput.click());
+["dragenter", "dragover"].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.add("drag"); })
+);
+["dragleave", "drop"].forEach(evt =>
+  dropzone.addEventListener(evt, (e) => { e.preventDefault(); dropzone.classList.remove("drag"); })
+);
+dropzone.addEventListener("drop", (e) => {
+  if (e.dataTransfer.files.length) setFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener("change", () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
+
+function setFile(file) {
+  selectedFile = file;
+  filenameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
+}
+
+function renderScreeningReport(result) {
+  const { paper, screening } = result;
+  const stampClass = paper.status === "APPROVED" ? "stamp-verified" : "stamp-rejected";
+  const stampWord = paper.status === "APPROVED" ? "Verified" : "Rejected";
+
+  const checksHtml = screening.checks.map(c => `
+    <div class="check-row ${c.passed ? "check-pass" : "check-fail"}">
+      <span class="check-dot"></span>
+      <span class="check-name">${escapeHtml(c.name.replace(/_/g, " "))}</span>
+      <span>${escapeHtml(c.detail)}</span>
+    </div>
+  `).join("");
+
+  document.getElementById("screening-result").innerHTML = `
+    <div class="screening-summary">
+      <div class="stamp ${stampClass} screening-stamp"><span class="big">${paper.status === "APPROVED" ? "✓" : "✕"}</span>${stampWord}</div>
+      <div>
+        <h3 class="screening-title">${paper.status === "APPROVED" ? "Published to the archive" : "Not published"}</h3>
+        <p class="screening-message">${paper.status === "APPROVED"
+          ? "Your paper is now visible to the whole faculty."
+          : "Fix the flagged issue(s) below and try uploading again."}</p>
+      </div>
+    </div>
+    <div class="screen-report">${checksHtml}</div>
+  `;
+}
+
+document.getElementById("upload-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const alertBox = document.getElementById("alert-box");
+  alertBox.innerHTML = "";
+  document.getElementById("screening-result").innerHTML = "";
+
+  if (!Auth.isLoggedIn()) {
+    alertBox.innerHTML = `<div class="alert alert-err">Please <a href="login.html?next=upload.html">log in</a> before submitting. Your selected file will remain on this page.</div>`;
+    return;
+  }
+
+  if (!selectedFile) {
+    alertBox.innerHTML = `<div class="alert alert-err">Choose a file first.</div>`;
+    return;
+  }
+
+  const btn = document.getElementById("submit-btn");
+  btn.disabled = true;
+  btn.textContent = "Screening…";
+
+  const form = new FormData();
+  form.append("title", document.getElementById("title").value);
+  form.append("unitName", document.getElementById("unitName").value);
+  if (document.getElementById("examType").value) form.append("examType", document.getElementById("examType").value);
+  if (document.getElementById("year").value) form.append("year", document.getElementById("year").value);
+  form.append("file", selectedFile);
+
+  try {
+    const result = await api("/papers", { method: "POST", body: form });
+    renderScreeningReport(result);
+  } catch (err) {
+    alertBox.innerHTML = `<div class="alert alert-err">${escapeHtml(err.message)}</div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Submit for screening";
+  }
+});
+</script>
+</body>
+</html>
