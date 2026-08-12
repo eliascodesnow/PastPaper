@@ -29,7 +29,7 @@ router.post("/register", async (req, res) => {
     return res.status(400).json({
       error:
         "That registration number doesn't match a recognised faculty format. " +
-        "Expected shapes: DSE-01-0419/2025 (diploma) or BSC-CS-0419/2025 (degree).",
+        "Expected shapes: DSE-0X-0XXX/20XX (diploma) or BSC-CS-0XXX/20XX (degree).",
     });
   }
 

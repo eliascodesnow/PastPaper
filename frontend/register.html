@@ -30,8 +30,9 @@
     <div id="alert-box"></div>
     <form id="register-form">
       <label for="regNumber">Registration number</label>
-      <input id="regNumber" class="reg-input" placeholder="DSE-01-0419/2025" required autocomplete="off" />
-      <div class="field-hint" id="reg-hint">Diploma: PREFIX-01-0419/2025 &middot; Degree: BSC-CS-0419/2025</div>
+      <input id="regNumber" class="reg-input" placeholder="BSc-0X-0XXX/XXXX" required autocomplete="off" />
+      <div class="field-hint" id="reg-hint">Diploma: DSE-01-0XXX/2025 &middot; Degree: <BSC-CS-0XXX>
+      <20XX></20XX></div>
 
       <label for="name">Full name</label>
       <input id="name" placeholder="As it appears on your student ID" required />
@@ -60,7 +61,7 @@ regInput.addEventListener("input", () => {
   checkTimer = setTimeout(async () => {
     if (!regInput.value.trim()) {
       hint.className = "field-hint";
-      hint.textContent = "Diploma: PREFIX-01-0419/2025 · Degree: BSC-CS-0419/2025";
+      hint.textContent = "Diploma: DSE-01-0XXX/2025 · Degree: BSC-CS-0XXX/2025";
       return;
     }
     try {
