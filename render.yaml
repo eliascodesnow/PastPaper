@@ -1,16 +1,1 @@
-services:
-  - type: web
-    name: pastpaper-api
-    env: node
-    plan: free
-    buildCommand: cd backend && npm install
-    startCommand: cd backend && npm start
-    envVars:
-      - key: NODE_VERSION
-        value: 20.18.0
-      - key: NODE_ENV
-        value: production
-      - key: JWT_SECRET
-        scope: secret
-      - key: PORT
-        value: 4000
+
