@@ -21,6 +21,6 @@
     "compression": "^1.7.4"
   },
   "engines": {
-    "node": "24x"
+    "node": "24.x"
   }
 }
