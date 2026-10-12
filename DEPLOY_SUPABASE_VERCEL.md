@@ -1,178 +1,50 @@
-# Deploying to Supabase + Vercel
+# Deploy The Archive
 
-This is the **official deployment guide** for PastPaper. The application is built to run on **Supabase** (database & storage) and **Vercel** (frontend & serverless API).
+The frontend is static and hosted by Vercel. Supabase provides authentication, the Postgres database, and private file storage. There is no Express server, SQLite database, or persistent Vercel filesystem.
 
-## Prerequisites
+## 1. Prepare Supabase
 
-- Supabase account (https://supabase.com)
-- Vercel account (https://vercel.com)
-- GitHub repository access
+1. Create a Supabase project.
+2. Open **SQL Editor**, run the complete contents of [`supabase/schema.sql`](supabase/schema.sql), and confirm it finishes without errors. This creates the profile and paper tables, row-level security policies, and the private `papers` bucket.
+3. In **Authentication → Providers**, enable Email. Configure email confirmation as desired.
+4. Enable Google in **Authentication → Providers → Google**, add the Google OAuth client credentials, and use the callback URL shown by Supabase in the Google Cloud OAuth client.
+5. In **Authentication → URL Configuration**, set the production Site URL to the Vercel domain. Add redirect URLs for `https://<your-domain>/login.html`, `https://<your-domain>/**`, and your local Vercel development URL if needed.
 
-## Step 1: Set up Supabase
+## 2. Configure Vercel
 
-### 1.1 Create a Supabase Project
+1. Import the repository into Vercel with the repository root as the Root Directory.
+2. Use the **Other** framework preset, no build command, and `frontend` as the Output Directory. The `/api/config` function is detected from the root `api` directory.
+3. Add these environment variables for Production, Preview, and Development as appropriate:
 
-1. Go to https://supabase.com and sign in
-2. Create a new project
-3. Note your project URL and anon key from the project settings
+   - `SUPABASE_URL`: the project URL from Supabase API settings.
+   - `SUPABASE_ANON_KEY`: the anon/publishable key from Supabase API settings.
 
-### 1.2 Create Database Tables
+4. Deploy. Verify `/api/config` returns the project URL and anon key, and that the home page loads.
 
-Run the following SQL in the Supabase SQL editor:
+The anon key is designed to be public. Do not add `SUPABASE_SERVICE_ROLE_KEY`, database passwords, or JWT secrets to the frontend or `/api/config` function.
 
-```sql
--- Users table
-CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  reg_number VARCHAR(50) UNIQUE NOT NULL,
-  name VARCHAR(255) NOT NULL,
-  password_hash VARCHAR(255) NOT NULL,
-  course VARCHAR(100),
-  is_admin BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+## 3. Review submissions
 
--- Papers table
-CREATE TABLE IF NOT EXISTS papers (
-  id TEXT PRIMARY KEY,
-  title VARCHAR(255) NOT NULL,
-  unit_code VARCHAR(50),
-  unit_name VARCHAR(255),
-  course VARCHAR(100),
-  exam_type VARCHAR(50),
-  year INT,
-  file_name VARCHAR(255),
-  file_path VARCHAR(255),
-  file_type VARCHAR(50),
-  status VARCHAR(50) DEFAULT 'PENDING',
-  rejection_reason TEXT,
-  screening_report JSONB,
-  download_count INT DEFAULT 0,
-  uploader_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  created_at TIMESTAMPTZ DEFAULT now()
-);
+Uploads are written to the private Storage bucket under the submitting user's ID and get a `PENDING` row. Only approved rows are visible publicly, and signed download links are issued for approved files. The Storage policies also allow the owner to read their own files.
 
--- Create indexes for performance
-CREATE INDEX IF NOT EXISTS idx_papers_status ON papers(status);
-CREATE INDEX IF NOT EXISTS idx_papers_uploader_id ON papers(uploader_id);
-CREATE INDEX IF NOT EXISTS idx_papers_course_year_exam ON papers(course, year, exam_type);
-CREATE INDEX IF NOT EXISTS idx_papers_year ON papers(year);
-CREATE INDEX IF NOT EXISTS idx_papers_created_at ON papers(created_at DESC);
-```
-
-### 1.3 Set up Storage Bucket
-
-1. Go to **Storage** in Supabase dashboard
-2. Create a new bucket named `papers`
-3. Make it **public** (for download access)
-4. Configure CORS in Storage settings if needed:
-   ```
-   ["GET", "POST", "PUT", "DELETE"]
-   ```
-
-### 1.4 (Optional) Enable RLS
-
-For production, enable Row Level Security:
+To approve a submission, use the Supabase SQL Editor after reviewing it:
 
 ```sql
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
-ALTER TABLE papers ENABLE ROW LEVEL SECURITY;
+update public.papers
+set status = 'APPROVED'
+where id = '<paper-uuid>';
 ```
 
-## Step 2: Deploy to Vercel
+To reject it, set `status = 'REJECTED'`. Do not change storage policies to make the bucket public; pending files must remain private.
 
-### 2.1 Connect Repository
+## 4. Local development
 
-1. Go to https://vercel.com/dashboard
-2. Click **"Add New"** → **"Project"**
-3. Import your GitHub repository (`eliascodesnow/PastPaper`)
-4. Select the repository and click **Import**
+Install the Vercel CLI, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the shell or a root `.env.local` file, then run `vercel dev` from the repository root. Supabase Auth redirect URLs must include the local URL shown by Vercel.
 
-### 2.2 Configure Environment Variables
+## Security and operations
 
-In Vercel project settings → **Environment Variables**, add:
-
-| Variable | Value |
-|----------|-------|
-| `SUPABASE_URL` | Your Supabase project URL (from Step 1.1) |
-| `SUPABASE_ANON_KEY` | Your Supabase anon key (from Step 1.1) |
-| `JWT_SECRET` | A strong random secret (generate with: `openssl rand -base64 32`) |
-
-### 2.3 Deployment Settings
-
-The following are already configured in `vercel.json`:
-
-- **Build Command**: `cd backend && npm install`
-- **Output Directory**: `frontend`
-- **Root Directory**: `./` (default)
-
-### 2.4 Deploy
-
-Click **"Deploy"** — Vercel will automatically:
-1. Install backend dependencies
-2. Route `/api/*` requests to the Express backend
-3. Serve frontend static files
-4. Set environment variables
-
-## Step 3: Update Frontend Configuration
-
-In your frontend code, ensure the API base URL points to your Vercel deployment:
-
-```javascript
-const API_BASE = window.API_BASE || '/api';
-```
-
-The frontend will automatically use relative URLs (`/api/*`), which works perfectly with Vercel's routing.
-
-## Important Notes
-
-- **Database**: PostgreSQL via Supabase (no local SQLite)
-- **File Storage**: Supabase Storage bucket (no local filesystem)
-- **Serverless**: Vercel Serverless Functions — no persistent disk
-- **Automatic Backups**: Supabase handles daily backups
-- **Scaling**: Automatically scales with usage
-
-## Monitoring & Logs
-
-### Vercel Logs
-- Dashboard: https://vercel.com/dashboard → Your Project → Deployments
-- Click on any deployment to see build and runtime logs
-
-### Supabase Logs
-- Dashboard: https://app.supabase.com → Your Project → Logs
-- Monitor database queries and API requests
-
-## Troubleshooting
-
-### 401/403 Errors
-- Verify `SUPABASE_ANON_KEY` is correct in Vercel environment variables
-- Check Supabase project settings for the correct anon key
-
-### File Upload Fails
-- Confirm Supabase Storage bucket `papers` exists and is public
-- Check bucket size (Supabase free tier: 1GB)
-
-### Database Connection Issues
-- Verify `SUPABASE_URL` format (should be `https://xxx.supabase.co`)
-- Check Supabase project is active and not paused
-
-### API 404 Errors
-- Ensure `/api/health` returns `{"ok": true, "service": "pastpaper-api"}`
-- Check Vercel build logs for errors
-- Verify backend dependencies installed correctly
-
-## Rollback / Redeploy
-
-To redeploy after fixes:
-1. Push changes to GitHub
-2. Go to Vercel dashboard → Your Project
-3. Click **"Redeploy"** on the latest commit
-4. Or enable automatic deployments on push
-
-## Next Steps
-
-- Implement Supabase Auth for OAuth (Google, GitHub, etc.)
-- Add automated backups to cloud storage
-- Set up monitoring alerts in Supabase
-- Implement CDN caching for static files
-- Consider upgrading Supabase tier for production usage
+- Database access is governed by row-level security. Authenticated clients can only insert pending papers and read their own submissions; public clients can only read approved papers.
+- The Storage bucket is private. Uploads are limited to the authenticated user's own folder, with a 20 MB limit and supported document/image MIME types.
+- New user profiles are created by a database trigger when Supabase Auth creates a user.
+- Existing users and papers from the old local SQLite database are not migrated automatically. Export and review that data separately before removing the local database file.
+- The old local `dev.db` file is intentionally not part of this deployment and should be retained until its contents have been backed up or migrated.

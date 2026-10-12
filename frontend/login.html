@@ -3,8 +3,6 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Set this meta to your backend API root (e.g. https://my-backend.up.railway.app). Leave empty to use same-origin /api -->
-    <meta name="api-base" content="">
 <title>Log in — The Archive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -21,20 +19,22 @@
 
 <main class="auth-shell">
   <div class="auth-heading">
-    <span class="auth-kicker">Welcome back</span>
+    <span class="auth-kicker">The faculty archive</span>
     <h1 class="auth-title">Log in</h1>
   </div>
 
   <div class="form-panel">
     <div id="alert-box"></div>
+    <button class="btn btn-google btn-block" id="google-login" type="button"><span class="google-mark" aria-hidden="true">G</span>Continue with Google</button>
+    <div class="auth-divider"><span>or continue with email</span></div>
     <form id="login-form">
-      <label for="regNumber">Registration number</label>
-      <input id="regNumber" class="reg-input" placeholder="BSc-0X-XXXX/20XX" required autocomplete="username" />
+      <label for="email">Email address</label>
+      <input id="email" type="email" placeholder="you@example.com" required autocomplete="email" />
 
       <label for="password">Password</label>
       <input id="password" type="password" required autocomplete="current-password" />
 
-      <button class="btn btn-primary btn-block auth-submit" type="submit">Log in</button>
+      <button class="btn btn-primary btn-block auth-submit" id="email-login" type="submit">Continue with email</button>
     </form>
     <div class="form-foot">New here? <a href="register.html">Register</a></div>
   </div>
@@ -42,30 +42,60 @@
 
 <script src="js/api.js"></script>
 <script>
-renderNav("login.html");
-const params = new URLSearchParams(window.location.search);
-const next = params.get("next") || "index.html";
-if (Auth.isLoggedIn()) window.location.href = next;
+(async () => {
+  await supabaseReady;
+  await renderNav("login.html");
+  const params = new URLSearchParams(window.location.search);
+  const requestedNext = params.get("next") || "index.html";
+  const next = requestedNext.startsWith("/") || requestedNext.includes(":") ? "index.html" : requestedNext;
+  if (Auth.isLoggedIn()) window.location.replace(next);
 
-document.getElementById("regNumber").addEventListener("input", (e) => e.target.value = e.target.value.toUpperCase());
-
-document.getElementById("login-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
   const alertBox = document.getElementById("alert-box");
-  alertBox.innerHTML = "";
-  try {
-    const data = await api("/auth/login", {
-      method: "POST",
-      body: JSON.stringify({
-        regNumber: document.getElementById("regNumber").value,
+  const showError = (message) => {
+    alertBox.textContent = "";
+    const alert = document.createElement("div");
+    alert.className = "alert alert-err";
+    alert.textContent = message;
+    alertBox.appendChild(alert);
+  };
+
+  document.getElementById("google-login").addEventListener("click", async (event) => {
+    const button = event.currentTarget;
+    button.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: "google",
+        options: { redirectTo: `${window.location.origin}/login.html?next=${encodeURIComponent(next)}` },
+      });
+      if (error) throw error;
+    } catch (error) {
+      showError(error.message);
+      button.disabled = false;
+    }
+  });
+
+  document.getElementById("login-form").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const button = document.getElementById("email-login");
+    button.disabled = true;
+    try {
+      const { error } = await supabaseClient.auth.signInWithPassword({
+        email: document.getElementById("email").value.trim(),
         password: document.getElementById("password").value,
-      }),
-    });
-    Auth.setSession(data.token, data.user);
-    window.location.href = next || "index.html";
-  } catch (err) {
-    alertBox.innerHTML = `<div class="alert alert-err">${escapeHtml(err.message)}</div>`;
-  }
+      });
+      if (error) throw error;
+      window.location.replace(next);
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      button.disabled = false;
+    }
+  });
+})().catch((error) => {
+  const alert = document.createElement("div");
+  alert.className = "alert alert-err";
+  alert.textContent = error.message;
+  document.getElementById("alert-box").appendChild(alert);
 });
 </script>
 </body>

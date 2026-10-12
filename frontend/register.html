@@ -3,8 +3,6 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Set this meta to your backend API root (e.g. https://my-backend.up.railway.app). Leave empty to use same-origin /api -->
-    <meta name="api-base" content="">
 <title>Register — The Archive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -21,26 +19,24 @@
 
 <main class="auth-shell">
   <div class="register-intro">
-    <span class="eyebrow register-eyebrow">New student</span>
-    <h1 class="register-title">Register your account</h1>
-    <p>Your registration number determines your course automatically.</p>
+    <span class="eyebrow register-eyebrow">Join the archive</span>
+    <h1 class="register-title">Create your account</h1>
+    <p>Use your email to save uploads and contribute papers.</p>
   </div>
 
   <div class="form-panel">
     <div id="alert-box"></div>
     <form id="register-form">
-      <label for="regNumber">Registration number</label>
-      <input id="regNumber" class="reg-input" placeholder="BSc-0X-0XXX/XXXX" required autocomplete="off" />
-      <div class="field-hint" id="reg-hint">Diploma: DSE-01-0XXX/2025 &middot; Degree: <BSC-CS-0XXX>
-      <20XX></20XX></div>
-
       <label for="name">Full name</label>
-      <input id="name" placeholder="As it appears on your student ID" required />
+      <input id="name" placeholder="Your name" required autocomplete="name" />
+
+      <label for="email">Email address</label>
+      <input id="email" type="email" placeholder="you@example.com" required autocomplete="email" />
 
       <label for="password">Password</label>
-      <input id="password" type="password" placeholder="At least 6 characters" required minlength="6" />
+      <input id="password" type="password" placeholder="At least 8 characters" required minlength="8" autocomplete="new-password" />
 
-      <button class="btn btn-primary btn-block register-submit" type="submit">Create account</button>
+      <button class="btn btn-primary btn-block register-submit" id="register-submit" type="submit">Create account</button>
     </form>
     <div class="form-foot">Already registered? <a class="register-login-link" href="login.html">Log in</a></div>
   </div>
@@ -48,57 +44,46 @@
 
 <script src="js/api.js"></script>
 <script>
-renderNav("register.html");
-if (Auth.isLoggedIn()) window.location.href = "index.html";
+(async () => {
+  await supabaseReady;
+  await renderNav("register.html");
+  if (Auth.isLoggedIn()) window.location.replace("index.html");
 
-const regInput = document.getElementById("regNumber");
-const hint = document.getElementById("reg-hint");
-let checkTimer;
-
-regInput.addEventListener("input", () => {
-  regInput.value = regInput.value.toUpperCase();
-  clearTimeout(checkTimer);
-  checkTimer = setTimeout(async () => {
-    if (!regInput.value.trim()) {
-      hint.className = "field-hint";
-      hint.textContent = "Diploma: DSE-01-0XXX/2025 · Degree: BSC-CS-0XXX/2025";
-      return;
-    }
-    try {
-      const result = await api("/auth/check-reg-number", {
-        method: "POST",
-        body: JSON.stringify({ regNumber: regInput.value }),
-      });
-      if (result.valid) {
-        hint.className = "field-hint ok";
-        hint.textContent = `Recognised as: ${result.course}`;
-      } else {
-        hint.className = "field-hint err";
-        hint.textContent = "Doesn't match a recognised format yet — keep typing or check the dashes/slash.";
-      }
-    } catch (e) { /* silent — non-critical */ }
-  }, 350);
-});
-
-document.getElementById("register-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+  const form = document.getElementById("register-form");
   const alertBox = document.getElementById("alert-box");
-  alertBox.innerHTML = "";
-
-  try {
-    const data = await api("/auth/register", {
-      method: "POST",
-      body: JSON.stringify({
-        regNumber: regInput.value,
-        name: document.getElementById("name").value,
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    alertBox.textContent = "";
+    const button = document.getElementById("register-submit");
+    button.disabled = true;
+    try {
+      const { data, error } = await supabaseClient.auth.signUp({
+        email: document.getElementById("email").value.trim(),
         password: document.getElementById("password").value,
-      }),
-    });
-    Auth.setSession(data.token, data.user);
-    window.location.href = "index.html";
-  } catch (err) {
-    alertBox.innerHTML = `<div class="alert alert-err">${escapeHtml(err.message)}</div>`;
-  }
+        options: { data: { full_name: document.getElementById("name").value.trim() } },
+      });
+      if (error) throw error;
+      const notice = document.createElement("div");
+      notice.className = "alert alert-ok";
+      notice.textContent = data.session
+        ? "Your account is ready. You can now contribute papers."
+        : "Check your email to confirm your account, then log in.";
+      alertBox.appendChild(notice);
+      if (data.session) window.location.replace("index.html");
+    } catch (error) {
+      const notice = document.createElement("div");
+      notice.className = "alert alert-err";
+      notice.textContent = error.message;
+      alertBox.appendChild(notice);
+    } finally {
+      button.disabled = false;
+    }
+  });
+})().catch((error) => {
+  const alert = document.createElement("div");
+  alert.className = "alert alert-err";
+  alert.textContent = error.message;
+  document.getElementById("alert-box").appendChild(alert);
 });
 </script>
 </body>

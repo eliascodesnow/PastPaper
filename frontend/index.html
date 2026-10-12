@@ -3,12 +3,10 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Set this meta to your backend API root (e.g. https://my-backend.up.railway.app). Leave empty to use same-origin /api -->
-    <meta name="api-base" content="">
 <title>The Archive — Faculty Past Papers</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="icon" href="/favicon.png">
+<link rel="icon" href="public/favicon.png">
 <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -26,10 +24,9 @@
       <span class="eyebrow">Faculty of ICT, Media &amp; Engineering</span>
       <h1> The Archive</h1>
       <p class="hero-description">
-        Log in with your registration number, browse papers by unit and year,
-        and contribute the ones you've collected. Every upload is screened
-        automatically before it goes liven. No blurry phone photos, no
-        scripts buried in scribbles.
+        Sign in with email or Google, browse papers by unit and year, and
+        contribute the ones you've collected. New submissions are reviewed
+        before they appear in the public archive.
       </p>
       <div class="hero-actions">
         <a href="#browse" class="btn btn-primary">Browse the archive</a>
@@ -38,10 +35,10 @@
     </div>
     <div>
       <div class="script-card">
-        <div class="label">Registration number</div>
-        <div class="reg">BSc-01-0000/20XX</div>
-        <div class="course">Bachelor of Science in Software Engineering (example)</div>
-        <div class="stamp stamp-verified"><span class="big">✓</span>Verified<br/>Student</div>
+        <div class="label">Faculty archive</div>
+        <div class="reg">PAST PAPERS</div>
+        <div class="course">Browse, contribute, and keep useful study material in circulation.</div>
+        <div class="stamp stamp-verified"><span class="big">✓</span>Community<br/>Reviewed</div>
       </div>
     </div>
   </div>
@@ -53,18 +50,18 @@
     <div class="grid-3 how-it-works-grid">
       <div class="panel">
         <span class="num">01</span>
-        <h3>Register once</h3>
-        <p>Your registration number tells us your course automatically DSE, DIT, DBIT, BSc and more are all recognised.</p>
+        <h3>Sign in securely</h3>
+        <p>Use your email and password or continue with Google.</p>
       </div>
       <div class="panel">
         <span class="num">02</span>
-        <h3>Papers are screened</h3>
-        <p>Every upload is checked for clarity, excessive handwriting, and language before it's published</p>
+        <h3>Submissions are reviewed</h3>
+        <p>New papers stay private to their uploader until an administrator approves them.</p>
       </div>
       <div class="panel">
         <span class="num">03</span>
-        <h3>Open to everyone</h3>
-        <p>Once approved, a paper belongs to the whole faculty community. No gatekeeping, no paying for past papers.</p>
+        <h3>Open to the community</h3>
+        <p>Approved papers are available to everyone. No gatekeeping, no paying for past papers.</p>
       </div>
     </div>
   </div>
@@ -92,34 +89,44 @@
       </select>
       <select id="filter-year" aria-label="Filter by year">
         <option value="">All years</option>
+        <optgroup label="Recent">
+        <option>2026</option>
+        <option>2025</option>
+        <option>2024</option>
+        <option>2023</option>
+        <option>2022</option>
+        <option>2021</option>
+        <optgroup label="Older">
+          <option>2020</option>
+          <option>2019</option>
+          <option>2018</option>
+          <option>2017</option>
+          <option>2016</option>
+          <option>2015</option>
+        </optgroup>
       </select>
     </div>
 
     <div class="ledger" id="ledger">
       <div class="ledger-empty">Loading the archive…</div>
     </div>
+    <div class="ledger-actions"><button id="load-more-btn" class="btn btn-ghost" type="button" hidden>Load more</button></div>
   </div>
 </section>
 
 <footer>
   <div class="wrap">
     <span>The Archive. Built by students, for students.</span>
-    <span>Made with ♥ by <a href="https://github.com/iamnotelias" target="_blank" rel="noopener">iamnotelias</a></span>
-    <span>Open source. No fees, ever.</span>
-  </div>
+    <span>Made with ♥ by <a href="https://github.com/eliascodesnow" target="_blank" rel="noopener">ELIAS</a></span>
+    <span>Open source. FREE.</span>
 </footer>
 
 <script src="js/api.js"></script>
 <script>
-renderNav("index.html");
+renderNav("index.html").catch(() => {});
 
 let currentPage = 1;
 let currentLimit = 20;
-let lastTotal = 0;
-
-function statusStamp() {
-  return `<span class="tag tag-verified">verified</span>`;
-}
 
 function rowHtml(p) {
   return `
@@ -131,7 +138,7 @@ function rowHtml(p) {
       <span class="tag">${escapeHtml(p.course)}</span>
       <span class="tag">${escapeHtml(p.examType)}</span>
       <span class="tag tag-year">${p.year}</span>
-      <a class="btn btn-ghost btn-download" href="${API_BASE}/papers/${p.id}/download">Download</a>
+      <a class="btn btn-ghost btn-download" href="${escapeHtml(p.downloadUrl)}" target="_blank" rel="noopener">Download</a>
     </div>
   `;
 }
@@ -164,28 +171,22 @@ async function loadPapers(page = 1, append = false) {
     if (year) params.set('year', year);
     const res = await api('/papers?' + params.toString());
     const { papers, total } = res;
-    lastTotal = total;
     renderLedger(papers, append);
     // show/hide load more
     const more = document.getElementById('load-more-btn');
-    if (!more) {
-      const btn = document.createElement('button');
-      btn.id = 'load-more-btn';
-      btn.className = 'btn btn-ghost';
-      btn.textContent = 'Load more';
-      btn.onclick = () => { currentPage++; loadPapers(currentPage, true); };
-      document.querySelector('.wrap').appendChild(btn);
-    }
+    more.onclick = () => { currentPage++; loadPapers(currentPage, true); };
     if ((page * currentLimit) >= total) {
-      const btn2 = document.getElementById('load-more-btn');
-      if (btn2) btn2.style.display = 'none';
+      more.hidden = true;
     } else {
-      const btn2 = document.getElementById('load-more-btn');
-      if (btn2) btn2.style.display = '';
+      more.hidden = false;
     }
   } catch (err) {
-    document.getElementById("ledger").innerHTML =
-      `<div class="ledger-empty">Couldn't reach the archive server. Is the backend running?</div>`;
+    const ledger = document.getElementById("ledger");
+    ledger.textContent = "";
+    const message = document.createElement("div");
+    message.className = "ledger-empty";
+    message.textContent = err.message || "Couldn't load the archive.";
+    ledger.appendChild(message);
   }
 }
 
@@ -196,7 +197,10 @@ document.getElementById("filter-exam").addEventListener("change", debouncedLoad)
 document.getElementById("filter-year").addEventListener("change", debouncedLoad);
 
 // Initial load
-loadPapers();
+supabaseReady.then(loadPapers).catch((error) => {
+  const ledger = document.getElementById("ledger");
+  ledger.textContent = error.message;
+});
 </script>
 </body>
 </html>

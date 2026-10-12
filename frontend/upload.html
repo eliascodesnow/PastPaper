@@ -21,7 +21,7 @@
   <div class="upload-intro">
     <span class="contribute-label">Contribute</span>
     <h1 class="upload-heading">Upload a past paper</h1>
-    <p>It's screened automatically the moment you submit — you'll see the result right here.</p>
+    <p>Your upload stays private until it has been reviewed by an administrator.</p>
   </div>
 
   <div class="form-panel">
@@ -32,6 +32,9 @@
 
       <label for="unitName">Unit name</label>
       <input id="unitName" placeholder="e.g. Data Structures and Algorithms" />
+
+      <label for="unitCode">Unit code</label>
+      <input id="unitCode" placeholder="e.g. BIT 2103" />
 
       <div class="upload-fields-grid">
         <div>
@@ -46,7 +49,7 @@
         </div>
         <div>
           <label for="year">Year</label>
-          <input id="year" type="number" min="2015" max="2030" placeholder="2025" />
+          <input id="year" type="number" min="2015" max="2027" placeholder="2026" />
         </div>
       </div>
 
@@ -57,25 +60,31 @@
       </div>
       <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.webp" class="visually-hidden" />
 
-      <button class="btn btn-primary btn-block upload-submit" type="submit" id="submit-btn">Submit for screening</button>
+      <button class="btn btn-primary btn-block upload-submit" type="submit" id="submit-btn">Submit for review</button>
     </form>
 
-    <div id="screening-result"></div>
+    <div id="upload-result"></div>
   </div>
 </main>
 
 <script src="js/api.js"></script>
 <script>
-renderNav("upload.html");
+supabaseReady.then(async () => {
+  await renderNav("upload.html");
+  if (!Auth.isLoggedIn()) {
+    const panel = document.querySelector('.form-panel');
+    const note = document.createElement('div');
+    note.className = 'alert alert-info';
+    note.textContent = 'Log in to submit a paper.';
+    panel.insertBefore(note, panel.firstChild);
+  }
+}).catch((error) => {
+  const alert = document.createElement("div");
+  alert.className = "alert alert-err";
+  alert.textContent = error.message;
+  document.getElementById("alert-box").appendChild(alert);
+});
 // Allow selecting a file while logged out — require login only to submit.
-const authNoteEl = document.createElement('div');
-authNoteEl.id = 'auth-note';
-if (!Auth.isLoggedIn()) {
-  authNoteEl.innerHTML = `<div class="alert alert-info">You are not logged in. You can choose a file now, but you must <a href="login.html?next=upload.html">log in</a> to submit it.</div>`;
-  const panel = document.querySelector('.form-panel');
-  if (panel) panel.insertBefore(authNoteEl, panel.firstChild);
-}
-
 const dropzone = document.getElementById("dropzone");
 const fileInput = document.getElementById("fileInput");
 const filenameEl = document.getElementById("filename");
@@ -94,72 +103,78 @@ dropzone.addEventListener("drop", (e) => {
 fileInput.addEventListener("change", () => { if (fileInput.files.length) setFile(fileInput.files[0]); });
 
 function setFile(file) {
+  if (file.size > 20 * 1024 * 1024) {
+    selectedFile = null;
+    filenameEl.textContent = "Files must be 20 MB or smaller.";
+    return;
+  }
+  if (!["application/pdf", "image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    selectedFile = null;
+    filenameEl.textContent = "Choose a PDF, JPG, PNG, or WEBP file.";
+    return;
+  }
   selectedFile = file;
   filenameEl.textContent = `${file.name} (${(file.size / 1024).toFixed(0)} KB)`;
 }
 
-function renderScreeningReport(result) {
-  const { paper, screening } = result;
-  const stampClass = paper.status === "APPROVED" ? "stamp-verified" : "stamp-rejected";
-  const stampWord = paper.status === "APPROVED" ? "Verified" : "Rejected";
-
-  const checksHtml = screening.checks.map(c => `
-    <div class="check-row ${c.passed ? "check-pass" : "check-fail"}">
-      <span class="check-dot"></span>
-      <span class="check-name">${escapeHtml(c.name.replace(/_/g, " "))}</span>
-      <span>${escapeHtml(c.detail)}</span>
-    </div>
-  `).join("");
-
-  document.getElementById("screening-result").innerHTML = `
-    <div class="screening-summary">
-      <div class="stamp ${stampClass} screening-stamp"><span class="big">${paper.status === "APPROVED" ? "✓" : "✕"}</span>${stampWord}</div>
-      <div>
-        <h3 class="screening-title">${paper.status === "APPROVED" ? "Published to the archive" : "Not published"}</h3>
-        <p class="screening-message">${paper.status === "APPROVED"
-          ? "Your paper is now visible to the whole faculty."
-          : "Fix the flagged issue(s) below and try uploading again."}</p>
-      </div>
-    </div>
-    <div class="screen-report">${checksHtml}</div>
-  `;
+function renderUploadResult(paper) {
+  const result = document.getElementById("upload-result");
+  result.textContent = "";
+  const message = document.createElement("div");
+  message.className = "alert alert-ok upload-confirmation";
+  message.textContent = `“${paper.title}” was submitted and is waiting for review.`;
+  result.appendChild(message);
 }
 
-document.getElementById("upload-form").addEventListener("submit", async (e) => {
-  e.preventDefault();
+document.getElementById("upload-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
   const alertBox = document.getElementById("alert-box");
   alertBox.innerHTML = "";
-  document.getElementById("screening-result").innerHTML = "";
+  document.getElementById("upload-result").textContent = "";
 
+  try {
+    await supabaseReady;
+  } catch (err) {
+    alertBox.textContent = err.message;
+    alertBox.className = "alert alert-err";
+    return;
+  }
   if (!Auth.isLoggedIn()) {
-    alertBox.innerHTML = `<div class="alert alert-err">Please <a href="login.html?next=upload.html">log in</a> before submitting. Your selected file will remain on this page.</div>`;
+    alertBox.textContent = "Log in before submitting. Your selected file will remain on this page.";
+    alertBox.className = "alert alert-err";
     return;
   }
 
   if (!selectedFile) {
-    alertBox.innerHTML = `<div class="alert alert-err">Choose a file first.</div>`;
+    alertBox.textContent = "Choose a valid file first.";
+    alertBox.className = "alert alert-err";
     return;
   }
 
   const btn = document.getElementById("submit-btn");
   btn.disabled = true;
-  btn.textContent = "Screening…";
+  btn.textContent = "Uploading…";
 
   const form = new FormData();
   form.append("title", document.getElementById("title").value);
   form.append("unitName", document.getElementById("unitName").value);
+  form.append("unitCode", document.getElementById("unitCode").value);
   if (document.getElementById("examType").value) form.append("examType", document.getElementById("examType").value);
   if (document.getElementById("year").value) form.append("year", document.getElementById("year").value);
   form.append("file", selectedFile);
 
   try {
     const result = await api("/papers", { method: "POST", body: form });
-    renderScreeningReport(result);
+    renderUploadResult(result.paper);
+    document.getElementById("upload-form").reset();
+    selectedFile = null;
+    filenameEl.textContent = "";
   } catch (err) {
-    alertBox.innerHTML = `<div class="alert alert-err">${escapeHtml(err.message)}</div>`;
+    alertBox.textContent = err.message;
+    alertBox.className = "alert alert-err";
   } finally {
     btn.disabled = false;
-    btn.textContent = "Submit for screening";
+    btn.textContent = "Submit for review";
   }
 });
 </script>

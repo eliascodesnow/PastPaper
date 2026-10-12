@@ -21,7 +21,7 @@
   <div class="wrap">
     <div class="eyebrow-line">Your record</div>
     <h1>My uploads</h1>
-    <p class="page-intro">Everything you've submitted, and what the screening pipeline decided.</p>
+    <p class="page-intro">Everything you've submitted and its review status.</p>
     <div class="ledger" id="ledger">
       <div class="ledger-empty">Loading…</div>
     </div>
@@ -30,8 +30,13 @@
 
 <script src="js/api.js"></script>
 <script>
-renderNav("mine.html");
-if (!Auth.isLoggedIn()) window.location.href = "login.html";
+supabaseReady.then(async () => {
+  await renderNav("mine.html");
+  if (!Auth.isLoggedIn()) window.location.replace("login.html?next=mine.html");
+  else loadMine();
+}).catch((error) => {
+  document.getElementById("ledger").textContent = error.message;
+});
 
 function stampFor(status) {
   if (status === "APPROVED") return `<span class="tag tag-verified">verified</span>`;
@@ -51,7 +56,7 @@ async function loadMine() {
       <div class="ledger-row">
         <div class="ledger-title">
           ${escapeHtml(p.title)}
-          <span class="unit">${escapeHtml(p.unitName || "")} ${p.unitCode ? "· " + escapeHtml(p.unitCode) : ""}${p.rejectionReason ? " — " + escapeHtml(p.rejectionReason) : ""}</span>
+          <span class="unit">${escapeHtml(p.unitName || "")} ${p.unitCode ? "· " + escapeHtml(p.unitCode) : ""}</span>
         </div>
         <span class="tag">${escapeHtml(p.examType)}</span>
         <span class="tag tag-year">${p.year}</span>
@@ -63,7 +68,6 @@ async function loadMine() {
     el.innerHTML = `<div class="ledger-empty">Couldn't load your uploads.</div>`;
   }
 }
-loadMine();
 </script>
 </body>
 </html>
