@@ -12,15 +12,16 @@ The frontend is static and hosted by Vercel. Supabase provides authentication, t
 
 ## 2. Configure Vercel
 
-1. Import the repository into Vercel with the repository root as the Root Directory.
-2. Use the **Other** framework preset, no build command, and `frontend` as the Output Directory. The `/api/config` function is detected from the root `api` directory.
-3. In the Vercel project, open **Analytics** and enable **Web Analytics**. The static pages include Vercel's HTML tracking script; enabling analytics makes the `/_vercel/insights/*` endpoint available after deployment.
-4. Add these environment variables for Production, Preview, and Development as appropriate:
+1. Import the repository into Vercel.
+2. In **Settings → Build and Deployment**, set **Root Directory** to `frontend`. This folder contains both the static pages and the `/api/config` function.
+3. Use the **Other** framework preset, no build command, and `.` as the Output Directory.
+4. In the Vercel project, open **Analytics** and enable **Web Analytics**. The static pages include Vercel's HTML tracking script; enabling analytics makes the `/_vercel/insights/*` endpoint available after deployment.
+5. Add these environment variables for Production, Preview, and Development as appropriate:
 
    - `SUPABASE_URL`: the project URL from Supabase API settings.
    - `SUPABASE_ANON_KEY`: the anon/publishable key from Supabase API settings.
 
-5. Deploy. Verify `/api/config` returns the project URL and anon key, and that the home page loads.
+6. Deploy. Verify `/` serves the home page and `/api/config` returns the project URL and anon key.
 
 The anon key is designed to be public. Do not add `SUPABASE_SERVICE_ROLE_KEY`, database passwords, or JWT secrets to the frontend or `/api/config` function.
 
@@ -40,7 +41,7 @@ To reject it, set `status = 'REJECTED'`. Do not change storage policies to make 
 
 ## 4. Local development
 
-Install the Vercel CLI, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the shell or a root `.env.local` file, then run `vercel dev` from the repository root. Supabase Auth redirect URLs must include the local URL shown by Vercel.
+Install the Vercel CLI, set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in the shell or a `.env.local` file inside `frontend`, then run `vercel dev` from the `frontend` directory. Supabase Auth redirect URLs must include the local URL shown by Vercel.
 
 ## Security and operations
 
