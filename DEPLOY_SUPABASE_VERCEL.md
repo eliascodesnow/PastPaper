@@ -14,12 +14,13 @@ The frontend is static and hosted by Vercel. Supabase provides authentication, t
 
 1. Import the repository into Vercel with the repository root as the Root Directory.
 2. Use the **Other** framework preset, no build command, and `frontend` as the Output Directory. The `/api/config` function is detected from the root `api` directory.
-3. Add these environment variables for Production, Preview, and Development as appropriate:
+3. In the Vercel project, open **Analytics** and enable **Web Analytics**. The static pages include Vercel's HTML tracking script; enabling analytics makes the `/_vercel/insights/*` endpoint available after deployment.
+4. Add these environment variables for Production, Preview, and Development as appropriate:
 
    - `SUPABASE_URL`: the project URL from Supabase API settings.
    - `SUPABASE_ANON_KEY`: the anon/publishable key from Supabase API settings.
 
-4. Deploy. Verify `/api/config` returns the project URL and anon key, and that the home page loads.
+5. Deploy. Verify `/api/config` returns the project URL and anon key, and that the home page loads.
 
 The anon key is designed to be public. Do not add `SUPABASE_SERVICE_ROLE_KEY`, database passwords, or JWT secrets to the frontend or `/api/config` function.
 

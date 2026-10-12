@@ -9,6 +9,7 @@ A faculty past-paper archive built as a static HTML/CSS/JavaScript frontend, wit
 - Upload PDF, JPG, PNG, and WEBP files up to 20 MB.
 - Keep new submissions private until an administrator approves them.
 - Use row-level security for paper metadata and storage objects.
+- Track page views with Vercel Web Analytics.
 
 ## Deploy
 
@@ -21,6 +22,6 @@ Follow [`DEPLOY_SUPABASE_VERCEL.md`](DEPLOY_SUPABASE_VERCEL.md) for the full set
 
 ## Local preview
 
-The static pages can be previewed through any local web server, but authentication and data features require the `/api/config` function. For a complete local run, use the Vercel CLI with `SUPABASE_URL` and `SUPABASE_ANON_KEY` set in the environment, then run `vercel dev` from the repository root.
+The static pages can be previewed through any local web server, but authentication and data features require the `/api/config` function. For a complete local run, set `SUPABASE_URL` and `SUPABASE_ANON_KEY`, then run `npm run dev` from the repository root.
 
 Only the Supabase anon/publishable key belongs in the frontend configuration. Never put a `service_role` key in Vercel client-facing configuration or browser code.
